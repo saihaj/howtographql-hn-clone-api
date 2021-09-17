@@ -1,0 +1,18 @@
+node_modules
+
+# Keep environment variables out of version control
+.env
+
+# No need to commit DB
+*.db
+
+# Mac files
+.DS_Store
+
+# Logs
+logs
+_.log
+npm-debug.log_
+yarn-debug.log*
+yarn-error.log*
+
