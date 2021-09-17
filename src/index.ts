@@ -1,11 +1,52 @@
 import fastify from "fastify";
+import { execute } from "graphql";
+import { exec } from "child_process";
 import { getGraphQLParameters, processRequest, Request } from "graphql-helix";
 import { renderPlaygroundPage } from "graphql-playground-html";
 import { PrismaClient } from "@prisma/client";
 import { verify, JwtPayload } from "jsonwebtoken";
 import { schema, APP_SECRET } from "./schema";
+import { createHive } from "@graphql-hive/client";
+import { config } from "dotenv";
+import { GraphQLContext } from "./context";
+import { version, author } from "../package.json";
 
 const prisma = new PrismaClient();
+
+let GIT_AUTHOR = author;
+let GIT_COMMIT = "cool";
+
+exec("git log -1 --pretty=format:'%an'", (_, stdout) => {
+  GIT_AUTHOR = stdout;
+});
+
+exec("git rev-parse HEAD", (_, stdout) => {
+  GIT_COMMIT = stdout;
+});
+
+// Load env vars
+config();
+
+// Setup Hive
+const hive = createHive({
+  enabled: true,
+  debug: true,
+  token: process.env.HIVE_TOKEN!,
+  reporting: {
+    author: GIT_AUTHOR,
+    commit: GIT_COMMIT,
+  },
+  usage: {
+    clientInfo(ctx: GraphQLContext) {
+      return {
+        name: ctx.currentUser?.name || "Unauthenticated user",
+        version,
+      };
+    },
+  },
+});
+
+hive.reportSchema({ schema });
 
 async function main() {
   const server = fastify();
@@ -32,6 +73,21 @@ async function main() {
     const result = await processRequest({
       request,
       schema,
+      execute: async (...args) => {
+        const executionArgs = {
+          schema: args[0],
+          document: args[1],
+          rootValue: args[2],
+          contextValue: args[3],
+          variableValues: args[4],
+          operationName: args[5],
+        };
+
+        const finish = hive.collectUsage(executionArgs);
+        const result = await execute(executionArgs);
+        finish(result);
+        return result;
+      },
       contextFactory: async () => {
         let currentUser = null;
 
