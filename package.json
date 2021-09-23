@@ -28,6 +28,8 @@
     "graphql": "^15.5.3",
     "graphql-helix": "^1.7.0",
     "graphql-playground-html": "^1.6.29",
-    "jsonwebtoken": "^8.5.1"
+    "graphql-subscriptions": "^1.2.1",
+    "jsonwebtoken": "^8.5.1",
+    "typed-graphql-subscriptions": "^0.0.1"
   }
 }

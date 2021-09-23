@@ -6,6 +6,7 @@ import { User, Prisma } from "@prisma/client";
 import { GraphQLContext } from "./context";
 import { hash, compare } from "bcryptjs";
 import { sign } from "jsonwebtoken";
+import { PubSubChannels } from "./pubsub";
 
 export const APP_SECRET = "this is my secret";
 
@@ -55,6 +56,10 @@ const typeDefs = /* GraphQL */ `
     description: String!
     url: String!
     postedBy: User
+  }
+
+  type Subscription {
+    newLink: Link
   }
 `;
 
@@ -139,6 +144,8 @@ const resolvers: IExecutableSchemaDefinition["resolvers"] = {
         },
       });
 
+      context.pubSub.publish("newLink", { createdAt: newLink });
+
       return newLink;
     },
     signup: async (
@@ -184,6 +191,16 @@ const resolvers: IExecutableSchemaDefinition["resolvers"] = {
         user,
         token,
       };
+    },
+  },
+  Subscription: {
+    newLink: {
+      subscribe: (_, __, context: GraphQLContext) => {
+        return context.pubSub.asyncIterator("newLink");
+      },
+      resolve: (payload: PubSubChannels["newLink"][0]) => {
+        return payload.createdAt;
+      },
     },
   },
 };
